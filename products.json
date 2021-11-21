@@ -1,10 +1,20 @@
-{
-    "products": [
-        {
-            "title": "Sorte handsker",
-            "description": "Et par lækre sorte handsker i 100% bommuld",
-            "price": "100kr",
-            "category": "cloth"
-        }
-    ]
-}
+[
+    {
+        "title": "Sorte handsker",
+        "description": "Et par lækre sorte handsker i 100% bommuld",
+        "price": "100kr",
+        "category": "Tøj"
+    },
+    {
+        "title": "Spejl",
+        "description": "Lækkert antikspejl med facetslebne kanter",
+        "price": "1.300kr",
+        "category": "Møbler"
+    },
+    {
+        "title": "Spisebord",
+        "description": "Flot gammelt egetræs spisebord. 1,5x4,5 meter",
+        "price": "23.000kr",
+        "category": "Møbler"
+    }
+]

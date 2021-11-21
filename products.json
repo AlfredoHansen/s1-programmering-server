@@ -1,0 +1,10 @@
+{
+    "products": [
+        {
+            "title": "Sorte handsker",
+            "description": "Et par lækre sorte handsker i 100% bommuld",
+            "price": "100kr",
+            "category": "cloth"
+        }
+    ]
+}

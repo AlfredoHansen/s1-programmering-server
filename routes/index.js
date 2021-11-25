@@ -132,4 +132,55 @@ charactersLength));
  return result;
 }
 
+//slet produkt
+// Vi tager id'et fra URL'en. Looper alle produkter igennem og sletter hvis vi finder det samme id.
+router.get('/api/products/delete', function(req, res, next) {
+  var deleteId = req.query.id;  
+
+  //Denne linie kigger på om filen exsistere
+  var file_exist = fs.existsSync('products.json');
+
+  //Tjek her om filen faktisk eksitere
+  if (file_exist) {
+    
+    //Hent data fra filen
+    var productsRaw = fs.readFileSync('products.json');
+    // laver det om til et js element
+    var products = JSON.parse(productsRaw);
+
+    console.log(products);
+    products.forEach((product,index)  => {
+      console.log(index);
+      
+      //Find produkt med korrekt id til at slette
+     if(product.id == deleteId) {
+       console.log('fundet id til at slette');
+        products.splice(index, 1);
+      }
+      
+    });
+    console.log(products);
+   
+  //Lav vores products object om til JSON igen..
+  var newDataToSave = JSON.stringify(products);
+
+  //Overskriv den gamle products.json med vores nye products object efter der er et produkt der er blevet slettet
+  fs.writeFile('products.json', newDataToSave, err => {
+    // error checking
+  if(err) throw err;  
+    console.log("New data added");
+  });
+  res.send(deleteId);
+
+  } else {
+
+    //Hvis ikke så fortæl brugeren at den ikke findes
+    res.send('File not found!');
+
+  }
+
+});
+
+
+
 module.exports = router;

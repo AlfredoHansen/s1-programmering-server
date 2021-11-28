@@ -24,8 +24,6 @@ router.get('/api/products', function(req, res, next) {
 
     } else {
       //Her ved vi at category er sat, så derfor filtere vi..
-
-
       var filteredProducts = [];
 
       products.forEach(product => {
@@ -38,7 +36,6 @@ router.get('/api/products', function(req, res, next) {
       });
       
       res.send(filteredProducts);
-
     }
 
   } else {
@@ -67,7 +64,7 @@ router.get('/api/products/create', function(req, res, next) {
   console.log(products);
   console.log(title + ' og ' + description + ' og ' + price + ' og ' + category);
 
-  //Lavet et nyt user object ved at bruge vores titel, beskrivelse, pris og kategori
+  //Lavet et nyt product object ved at bruge vores titel, beskrivelse, pris og kategori
   let newProduct = {
     "title": title,
     "description": description,
@@ -181,6 +178,55 @@ router.get('/api/products/delete', function(req, res, next) {
 
 });
 
+//rediger produkt
+// Vi tager id'et fra URL'en. Looper alle produkter igennem og redigere hvis vi finder det samme id.
+router.get('/api/products/edit', function(req, res, next) {
+  let id = req.query.id;  
+  let title = req.query.title;
+  let description = req.query.description;
+  let price = req.query.price;
+  let category = req.query.category;
+
+  //Hent products fil
+  var productsRaw = fs.readFileSync('products.json');
+
+  //Lavet rå data om til et Javascript object
+  var products = JSON.parse(productsRaw);
+
+  //tester
+  console.log(products);
+
+  // Hvis produktets id er det samme id som det jef skal redigere får jeg lov til at redigere følgende parametre
+  products.forEach((product,index)  => {
+    if(product.id == id){
+      let editProduct = {
+        "title": title,
+        "description": description,
+        "price": price,
+        "category": category,
+        "id": id
+        };
+        //Jeg tager produktet udfra dets plads i arrayet og redigere i lige præcis det
+        products[index] = editProduct
+    }
+  });
+  //test
+  console.log(products);
+
+     //Lav vores products object om til JSON igen..
+    var newDataToSave = JSON.stringify(products);
+
+    //Overskriv den gamle products.json med vores nye products object
+    fs.writeFile('products.json', newDataToSave, err => {
+    // error checking
+    if(err) throw err;  
+    console.log("New data added");
+    });
+
+  //Returner besked til klienten.
+    res.send('Produkt redigeret '+title+' - '+description+' - '+price+' - '+category);
+});
+  
 
 
 module.exports = router;

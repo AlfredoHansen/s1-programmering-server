@@ -2,6 +2,8 @@ var express = require('express');
 var router = express.Router();
 const fs = require('fs');
 
+// PRODUKT SERVER
+
 //Route /products - hent alle products
 router.get('/api/products', function(req, res, next) {
   
@@ -229,4 +231,60 @@ router.get('/api/products/edit', function(req, res, next) {
   
 
 
+// USERS SERVER
+// Create user
+//Hent produkt
+router.get('/api/users/create', function(req, res, next) {
+
+  //Hent navm, email, password og id fra url params
+  let name = req.query.name;
+  let email = req.query.email;
+  let password = req.query.password;
+  let id = makeUserId(10);
+
+  //Hent products fil
+  var usersRaw = fs.readFileSync('users.json');
+
+  //Lavet rå data om til et Javascript object
+  var users = JSON.parse(usersRaw);
+
+  //Disse er bare for test
+  console.log(users);
+
+
+  //Lavet et nyt product object ved at bruge vores titel, beskrivelse, pris og kategori
+  let newUser = {
+    "name": name,
+    "email": email,
+    "password": password,
+    "id": id
+  };
+  //Pushet vores nye object til vores products object
+  users.push(newUser);
+
+  
+  //Lav vores products object om til JSON igen..
+  var newDataToSave = JSON.stringify(users);
+
+  //Overskriv den gamle products.json med vores nye products object
+  fs.writeFile('users.json', newDataToSave, err => {
+    // error checking
+  if(err) throw err;  
+  console.log("New data added");
+  });
+
+  //Returner besked til klienten.
+  res.send('Ny bruger oprettet '+name+' - '+email+' - '+password+' - '+id);
+});
+//Giv hver user et random id
+function makeUserId(length) {
+  var result           = '';
+  var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  var charactersLength = characters.length;
+  for ( var i = 0; i < length; i++ ) {
+    result += characters.charAt(Math.floor(Math.random() * 
+charactersLength));
+ }
+ return result;
+}
 module.exports = router;

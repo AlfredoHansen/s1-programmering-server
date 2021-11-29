@@ -233,7 +233,7 @@ router.get('/api/products/edit', function(req, res, next) {
 
 // USERS SERVER
 // Create user
-//Hent produkt
+//Hent user
 router.get('/api/users/create', function(req, res, next) {
 
   //Hent navm, email, password og id fra url params
@@ -242,7 +242,7 @@ router.get('/api/users/create', function(req, res, next) {
   let password = req.query.password;
   let id = makeUserId(10);
 
-  //Hent products fil
+  //Hent user fil
   var usersRaw = fs.readFileSync('users.json');
 
   //Lavet rå data om til et Javascript object
@@ -252,21 +252,21 @@ router.get('/api/users/create', function(req, res, next) {
   console.log(users);
 
 
-  //Lavet et nyt product object ved at bruge vores titel, beskrivelse, pris og kategori
+  //Lavet et nyt user object ved at bruge vores navn, email, password og id
   let newUser = {
     "name": name,
     "email": email,
     "password": password,
     "id": id
   };
-  //Pushet vores nye object til vores products object
+  //Pushet vores nye object til vores users object
   users.push(newUser);
 
   
-  //Lav vores products object om til JSON igen..
+  //Lav vores users object om til JSON igen..
   var newDataToSave = JSON.stringify(users);
 
-  //Overskriv den gamle products.json med vores nye products object
+  //Overskriv den gamle users.json med vores nye users object
   fs.writeFile('users.json', newDataToSave, err => {
     // error checking
   if(err) throw err;  
@@ -287,4 +287,37 @@ charactersLength));
  }
  return result;
 }
+
+
+// Log ind
+//Hent user
+router.get('/api/users/login', function(req, res, next) {
+  
+  //Hent email og password fra url params
+  let email = req.query.email;
+  let password = req.query.password;
+
+   //Denne linie kigger på om filen exsistere
+   var file_exist = fs.existsSync('users.json');
+
+   //Tjek her om filen faktisk eksitere
+   if (file_exist) {
+     
+   //Hent data fra filen
+   var usersRaw = fs.readFileSync('users.json');
+   // laver det om til et js element
+   var users = JSON.parse(usersRaw);
+    // Hvis users id er det samme id som det jeg er logget ind med kan jeg logge ind
+  users.forEach((user,index)  => {
+    //tjekker om en email og et password passer på en eksisterende bruger
+    if(user.email == email && user.password == password) {
+      res.send(user);
+    }
+  });
+  res.send({ 'failed':'Kunne ikke finde bruger'});
+}
+
+})
+
+
 module.exports = router;

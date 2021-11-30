@@ -190,6 +190,7 @@ router.get('/api/products/edit', function(req, res, next) {
   let description = req.query.description;
   let price = req.query.price;
   let category = req.query.category;
+  let userId = req.query.userId;
 
   //Hent products fil
   var productsRaw = fs.readFileSync('products.json');
@@ -208,7 +209,8 @@ router.get('/api/products/edit', function(req, res, next) {
         "description": description,
         "price": price,
         "category": category,
-        "id": id
+        "id": id,
+        "userId": userId
         };
         //Jeg tager produktet udfra dets plads i arrayet og redigere i lige præcis det
         products[index] = editProduct

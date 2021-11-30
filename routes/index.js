@@ -55,6 +55,7 @@ router.get('/api/products/create', function(req, res, next) {
   let price = req.query.price;
   let category = req.query.category;
   let id = makeid(10);
+  let userId = req.query.userId;
 
   //Hent products fil
   var productsRaw = fs.readFileSync('products.json');
@@ -72,7 +73,8 @@ router.get('/api/products/create', function(req, res, next) {
     "description": description,
     "price": price,
     "category": category,
-    "id": id
+    "id": id,
+    "userId": userId
   };
   //Pushet vores nye object til vores products object
   products.push(newProduct);

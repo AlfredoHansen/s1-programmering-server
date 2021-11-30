@@ -321,5 +321,38 @@ router.get('/api/users/login', function(req, res, next) {
 
 })
 
+//Se ens egne produkter når man er logget ind: 
+
+//Route /products - hent alle products
+router.get('/api/users/profile', function(req, res, next) {
+  
+  let userId = req.query.userId;
+  
+  //Denne linie kigger på om filen exsistere
+  var file_exist = fs.existsSync('products.json');
+  //Tjek her om filen faktisk eksitere
+  if (file_exist) {
+    //Hent data fra filen
+    var data = fs.readFileSync('products.json');
+    //Konverter vores data til json
+    var products = JSON.parse(data);
+    //Returner json til klienten
+  
+      //Her ved vi at userId er sat, så derfor filtere vi..
+    var filteredUserProducts = [];
+
+      products.forEach(product => {
+        
+        //Tag kun de produkter som passer på vores userId
+        if(product.userId == userId) {
+          filteredUserProducts.push(product) 
+        }
+      console.log(products)
+      
+      }) 
+      res.send(filteredUserProducts);
+    }
+});
+
 
 module.exports = router;

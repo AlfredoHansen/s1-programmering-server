@@ -356,5 +356,49 @@ router.get('/api/users/profile', function(req, res, next) {
     }
 });
 
+//rediger Bruger
+// Vi tager id'et fra URL'en. Looper alle brugere igennem og redigere hvis vi finder det samme id.
+router.get('/api/users/edit', function(req, res, next) {  
+  let name = req.query.name;
+  let email = req.query.email;
+  let password = req.query.password;
+  let userId = req.query.userId;
+
+  //Hent users fil
+  var usersRaw = fs.readFileSync('users.json');
+
+  //Lavet rå data om til et Javascript object
+  var users = JSON.parse(usersRaw);
+
+  //tester
+  console.log(users);
+
+  // Hvis users id er det samme id som det jeg skal redigere får jeg lov til at redigere følgende parametre
+  users.forEach((user,index)  => {
+    if(user.id == userId){
+      let editUser = {
+        "name": name,
+        "email": email,
+        "password": password,
+        "userId": userId
+        };
+        //Jeg tager brugeren udfra dets plads i arrayet og redigere i lige præcis det
+        users[index] = editUser
+    }
+    });
+
+    //Lav vores products object om til JSON igen..
+    var newDataToSave = JSON.stringify(users);
+
+    //Overskriv den gamle products.json med vores nye products object
+    fs.writeFile('users.json', newDataToSave, err => {
+    // error checking
+    if(err) throw err;  
+    console.log("New data added");
+    });
+
+  //Returner besked til klienten.
+    res.send('brugeren redigeret '+name+' - '+email+' - '+password);
+});
 
 module.exports = router;

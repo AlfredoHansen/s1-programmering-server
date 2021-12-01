@@ -401,4 +401,45 @@ router.get('/api/users/edit', function(req, res, next) {
     res.send('brugeren redigeret '+name+' - '+email+' - '+password);
 });
 
+//slet bruger
+// Vi tager id'et fra URL'en. Looper alle users igennem og sletter hvis vi finder det samme id.
+router.get('/api/users/delete', function(req, res, next) {
+  var deleteUserId = req.query.userId;  
+
+  //Denne linie kigger på om filen exsistere
+  var file_exist = fs.existsSync('users.json');
+
+  //Tjek her om filen faktisk eksitere
+  if (file_exist) {
+    
+    //Hent data fra filen
+    var usersRaw = fs.readFileSync('users.json');
+    // laver det om til et js element
+    var users = JSON.parse(usersRaw);
+
+    users.forEach((user,index)  => {
+      console.log(index);
+      
+      //Find produkt med korrekt id til at slette
+     if(user.userId == deleteUserId) {
+       console.log('fundet id til at slette');
+        users.splice(index, 1);
+      }
+      
+    });
+    console.log(users);
+   
+  //Lav vores products object om til JSON igen..
+  var newDataToSave = JSON.stringify(users);
+
+  //Overskriv den gamle products.json med vores nye products object efter der er et produkt der er blevet slettet
+  fs.writeFile('users.json', newDataToSave, err => {
+    // error checking
+  if(err) throw err;  
+  });
+  res.send(deleteUserId);
+  } 
+
+});
+
 module.exports = router;

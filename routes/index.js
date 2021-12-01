@@ -35,7 +35,7 @@ router.get('/api/products', function(req, res, next) {
         //Tag kun de produkter som passer på vores kategori
         if(product.category == category) {
           filteredProducts.push(product) 
-        };
+        }
       });
       
       //Response med de filtrerede produkter
@@ -74,7 +74,7 @@ router.get('/api/products/create', function(req, res, next) {
     "category": category,
     "id": id,
     "userId": userId
-  };
+  }
   //Push vores nye object til vores products object
   products.push(newProduct);
 
@@ -173,7 +173,7 @@ router.get('/api/products/delete', function(req, res, next) {
 
     //Hvis ikke så fortæl brugeren at den ikke findes
     res.send('File not found!');
-  };
+  }
 
 });
 
@@ -249,7 +249,7 @@ router.get('/api/users/create', function(req, res, next) {
     "email": email,
     "password": password,
     "id": id
-  };
+  }
 
   //Push vores nye object til vores users object
   users.push(newUser);
@@ -276,9 +276,9 @@ function makeUserId(length) {
   for ( var i = 0; i < length; i++ ) {
     result += characters.charAt(Math.floor(Math.random() * 
     charactersLength));
- };
+  }
  return result;
-};
+}
 
 
 // Log ind
@@ -307,10 +307,10 @@ router.get('/api/users/login', function(req, res, next) {
       //tjekker om en email og et password passer på en eksisterende bruger
       if(user.email == email && user.password == password) {
         res.send(user);
-      };
+      }
     });
     res.send({ 'failed':'Kunne ikke finde bruger'});
-  };
+  }
 
 });
 
@@ -345,7 +345,7 @@ router.get('/api/users/profile', function(req, res, next) {
     
     }) 
     res.send(filteredUserProducts);
-  };
+  }
 });
 
 //Rediger Bruger
@@ -372,7 +372,7 @@ router.get('/api/users/edit', function(req, res, next) {
         "email": email,
         "password": password,
         "userId": userId
-      };
+      }
       //Jeg tager brugeren udfra dets plads i arrayet og redigere i lige præcis det
       users[index] = editUser
     }
@@ -414,7 +414,7 @@ router.get('/api/users/delete', function(req, res, next) {
       //Find user med korrekt id til at slette
       if(user.userId == deleteUserId) {
         users.splice(index, 1);
-      };
+      }
     });
    
     //Lav vores users object om til JSON igen..
@@ -426,7 +426,7 @@ router.get('/api/users/delete', function(req, res, next) {
       if(err) throw err;  
     });
     res.send(deleteUserId);
-  }; 
+  }
 });
 
 module.exports = router;

@@ -4,52 +4,55 @@ const fs = require('fs');
 
 // PRODUKT SERVER
 
+//Alle produkter
 //Route /products - hent alle products
 router.get('/api/products', function(req, res, next) {
-  
+
+  //Hent category fra URL params
   let category = req.query.category;
   
   //Denne linie kigger på om filen exsistere
   var file_exist = fs.existsSync('products.json');
+
   //Tjek her om filen faktisk eksitere
   if (file_exist) {
+    
     //Hent data fra filen
     var data = fs.readFileSync('products.json');
+
     //Konverter vores data til json
     products = JSON.parse(data);
-    //Returner json til klienten
-
-    //Hvis category ikke er med i requestet til serveren, så skal vi bare returnere alle produkter
+    
+    //Hvis category ikke er med i requestet til serveren, så skal den bare returnere alle produkter
     if(!category) {
-
       res.send(products);
-
     } else {
-      //Her ved vi at category er sat, så derfor filtere vi..
+
+      //Her ved vi at category er sat, så derfor filtrerer produkterne
       var filteredProducts = [];
 
       products.forEach(product => {
-        
         //Tag kun de produkter som passer på vores kategori
         if(product.category == category) {
           filteredProducts.push(product) 
-        }
-
+        };
       });
       
+      //Response med de filtrerede produkter
       res.send(filteredProducts);
     }
 
-  } else {
+    } else {
     //Hvis ikke så fortæl brugeren at den ikke findes
     res.send('File not found!');
   }
 });
 
+//Lav Produkt
 //Hent produkt
 router.get('/api/products/create', function(req, res, next) {
 
-  //Hent titel, beskrivelse, pris og kategori fra url params
+  //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
   let title = req.query.title;
   let description = req.query.description;
   let price = req.query.price;
@@ -60,14 +63,10 @@ router.get('/api/products/create', function(req, res, next) {
   //Hent products fil
   var productsRaw = fs.readFileSync('products.json');
 
-  //Lavet rå data om til et Javascript object
+  //Lav rå data om til et Javascript object
   var products = JSON.parse(productsRaw);
 
-  //Disse er bare for test
-  console.log(products);
-  console.log(title + ' og ' + description + ' og ' + price + ' og ' + category);
-
-  //Lavet et nyt product object ved at bruge vores titel, beskrivelse, pris og kategori
+  //Lavet et nyt product object ved at bruge vores titel, beskrivelse, pris, kategori, id og userId
   let newProduct = {
     "title": title,
     "description": description,
@@ -76,28 +75,29 @@ router.get('/api/products/create', function(req, res, next) {
     "id": id,
     "userId": userId
   };
-  //Pushet vores nye object til vores products object
+  //Push vores nye object til vores products object
   products.push(newProduct);
 
-  
-  //Lav vores products object om til JSON igen..
+  //Lav vores products object om til JSON igen
   var newDataToSave = JSON.stringify(products);
 
   //Overskriv den gamle products.json med vores nye products object
   fs.writeFile('products.json', newDataToSave, err => {
+
     // error checking
-  if(err) throw err;  
+    if(err) throw err;  
     console.log("New data added");
   });
 
   //Returner besked til klienten.
   res.send('Nyt produkt tilføjet '+title+' - '+description+' - '+price+' - '+category);
-
-
 });
+
+
+
 //Route /products - hent alle products
 router.get('/api/products', function(req, res, next) {
-
+  
   //Denne linie kigger på om filen exsistere
   var file_exist = fs.existsSync('products.json');
 
@@ -114,10 +114,9 @@ router.get('/api/products', function(req, res, next) {
     res.send(obj);
 
   } else {
-
+    
     //Hvis ikke så fortæl brugeren at den ikke findes
     res.send('File not found!');
-
   }
 });
 
@@ -128,7 +127,7 @@ function makeid(length) {
   var charactersLength = characters.length;
   for ( var i = 0; i < length; i++ ) {
     result += characters.charAt(Math.floor(Math.random() * 
-charactersLength));
+    charactersLength));
  }
  return result;
 }
@@ -146,21 +145,19 @@ router.get('/api/products/delete', function(req, res, next) {
     
     //Hent data fra filen
     var productsRaw = fs.readFileSync('products.json');
+
     // laver det om til et js element
     var products = JSON.parse(productsRaw);
 
-    console.log(products);
+
     products.forEach((product,index)  => {
-      console.log(index);
       
       //Find produkt med korrekt id til at slette
-     if(product.id == deleteId) {
-       console.log('fundet id til at slette');
+      if(product.id == deleteId) {
         products.splice(index, 1);
       }
       
     });
-    console.log(products);
    
   //Lav vores products object om til JSON igen..
   var newDataToSave = JSON.stringify(products);
@@ -168,8 +165,7 @@ router.get('/api/products/delete', function(req, res, next) {
   //Overskriv den gamle products.json med vores nye products object efter der er et produkt der er blevet slettet
   fs.writeFile('products.json', newDataToSave, err => {
     // error checking
-  if(err) throw err;  
-    console.log("New data added");
+    if(err) throw err;  
   });
   res.send(deleteId);
 
@@ -177,14 +173,15 @@ router.get('/api/products/delete', function(req, res, next) {
 
     //Hvis ikke så fortæl brugeren at den ikke findes
     res.send('File not found!');
-
-  }
+  };
 
 });
 
 //rediger produkt
 // Vi tager id'et fra URL'en. Looper alle produkter igennem og redigere hvis vi finder det samme id.
 router.get('/api/products/edit', function(req, res, next) {
+
+  //Hent id, titel, beskrivelse, pris, kategori, og userId fra url params
   let id = req.query.id;  
   let title = req.query.title;
   let description = req.query.description;
@@ -198,10 +195,7 @@ router.get('/api/products/edit', function(req, res, next) {
   //Lavet rå data om til et Javascript object
   var products = JSON.parse(productsRaw);
 
-  //tester
-  console.log(products);
-
-  // Hvis produktets id er det samme id som det jef skal redigere får jeg lov til at redigere følgende parametre
+  //Hvis produktets id er det samme id som det jeg skal redigere får jeg lov til at redigere følgende parametre
   products.forEach((product,index)  => {
     if(product.id == id){
       let editProduct = {
@@ -211,26 +205,23 @@ router.get('/api/products/edit', function(req, res, next) {
         "category": category,
         "id": id,
         "userId": userId
-        };
-        //Jeg tager produktet udfra dets plads i arrayet og redigere i lige præcis det
-        products[index] = editProduct
+      };
+      //Jeg tager produktet udfra dets plads i arrayet og redigere i lige præcis det
+      products[index] = editProduct
     }
   });
-  //test
-  console.log(products);
 
-     //Lav vores products object om til JSON igen..
-    var newDataToSave = JSON.stringify(products);
+  //Lav vores products object om til JSON igen..
+  var newDataToSave = JSON.stringify(products);
 
-    //Overskriv den gamle products.json med vores nye products object
-    fs.writeFile('products.json', newDataToSave, err => {
+  //Overskriv den gamle products.json med vores nye products object
+  fs.writeFile('products.json', newDataToSave, err => {
     // error checking
     if(err) throw err;  
-    console.log("New data added");
-    });
+  });
 
   //Returner besked til klienten.
-    res.send('Produkt redigeret '+title+' - '+description+' - '+price+' - '+category);
+  res.send('Produkt redigeret '+title+' - '+description+' - '+price+' - '+category);
 });
   
 
@@ -240,7 +231,7 @@ router.get('/api/products/edit', function(req, res, next) {
 //Hent user
 router.get('/api/users/create', function(req, res, next) {
 
-  //Hent navm, email, password og id fra url params
+  //Hent navn, email, password og tilfældigt id fra url params
   let name = req.query.name;
   let email = req.query.email;
   let password = req.query.password;
@@ -252,10 +243,6 @@ router.get('/api/users/create', function(req, res, next) {
   //Lavet rå data om til et Javascript object
   var users = JSON.parse(usersRaw);
 
-  //Disse er bare for test
-  console.log(users);
-
-
   //Lavet et nyt user object ved at bruge vores navn, email, password og id
   let newUser = {
     "name": name,
@@ -263,23 +250,24 @@ router.get('/api/users/create', function(req, res, next) {
     "password": password,
     "id": id
   };
-  //Pushet vores nye object til vores users object
+
+  //Push vores nye object til vores users object
   users.push(newUser);
 
-  
   //Lav vores users object om til JSON igen..
   var newDataToSave = JSON.stringify(users);
 
   //Overskriv den gamle users.json med vores nye users object
   fs.writeFile('users.json', newDataToSave, err => {
     // error checking
-  if(err) throw err;  
-  console.log("New data added");
+    if(err) throw err;  
   });
 
   //Returner besked til klienten.
   res.send('Ny bruger oprettet '+name+' - '+email+' - '+password+' - '+id);
+
 });
+
 //Giv hver user et random id
 function makeUserId(length) {
   var result           = '';
@@ -287,10 +275,10 @@ function makeUserId(length) {
   var charactersLength = characters.length;
   for ( var i = 0; i < length; i++ ) {
     result += characters.charAt(Math.floor(Math.random() * 
-charactersLength));
- }
+    charactersLength));
+ };
  return result;
-}
+};
 
 
 // Log ind
@@ -301,64 +289,70 @@ router.get('/api/users/login', function(req, res, next) {
   let email = req.query.email;
   let password = req.query.password;
 
-   //Denne linie kigger på om filen exsistere
-   var file_exist = fs.existsSync('users.json');
+  //Denne linie kigger på om filen exsistere
+  var file_exist = fs.existsSync('users.json');
 
-   //Tjek her om filen faktisk eksitere
-   if (file_exist) {
-     
-   //Hent data fra filen
-   var usersRaw = fs.readFileSync('users.json');
-   // laver det om til et js element
-   var users = JSON.parse(usersRaw);
+  //Tjek her om filen faktisk eksitere
+  if (file_exist) {
+
+    //Hent data fra filen
+    var usersRaw = fs.readFileSync('users.json');
+
+    // laver det om til et js element
+    var users = JSON.parse(usersRaw);
+
     // Hvis users id er det samme id som det jeg er logget ind med kan jeg logge ind
-  users.forEach((user,index)  => {
-    //tjekker om en email og et password passer på en eksisterende bruger
-    if(user.email == email && user.password == password) {
-      res.send(user);
-    }
-  });
-  res.send({ 'failed':'Kunne ikke finde bruger'});
-}
+    users.forEach((user,index)  => {
 
-})
+      //tjekker om en email og et password passer på en eksisterende bruger
+      if(user.email == email && user.password == password) {
+        res.send(user);
+      };
+    });
+    res.send({ 'failed':'Kunne ikke finde bruger'});
+  };
 
-//Se ens egne produkter når man er logget ind: 
+});
+
+//Muligheden for at kunne se ens egne produkter når man er logget ind: 
 
 //Route /products - hent alle products
 router.get('/api/users/profile', function(req, res, next) {
   
+  //Henter vores userId fra URL params
   let userId = req.query.userId;
   
   //Denne linie kigger på om filen exsistere
   var file_exist = fs.existsSync('products.json');
+
   //Tjek her om filen faktisk eksitere
   if (file_exist) {
+
     //Hent data fra filen
     var data = fs.readFileSync('products.json');
+
     //Konverter vores data til json
     var products = JSON.parse(data);
-    //Returner json til klienten
   
-      //Her ved vi at userId er sat, så derfor filtere vi..
+    //Her ved vi at userId er sat, så derfor filtere vi..
     var filteredUserProducts = [];
 
-      products.forEach(product => {
-        
-        //Tag kun de produkter som passer på vores userId
-        if(product.userId == userId) {
-          filteredUserProducts.push(product) 
-        }
-      console.log(products)
-      
-      }) 
-      res.send(filteredUserProducts);
-    }
+    products.forEach(product => {
+      //Tag kun de produkter som passer på vores userId og dermed oprettet af en user med samme userId
+      if(product.userId == userId) {
+        filteredUserProducts.push(product) 
+      }
+    
+    }) 
+    res.send(filteredUserProducts);
+  };
 });
 
-//rediger Bruger
-// Vi tager id'et fra URL'en. Looper alle brugere igennem og redigere hvis vi finder det samme id.
+//Rediger Bruger
+//Vi tager id'et fra URL'en. Looper alle brugere igennem og redigere hvis vi finder en bruger med samme id.
 router.get('/api/users/edit', function(req, res, next) {  
+
+  //Henter name, email, password og userId fra vores URL params
   let name = req.query.name;
   let email = req.query.email;
   let password = req.query.password;
@@ -370,10 +364,7 @@ router.get('/api/users/edit', function(req, res, next) {
   //Lavet rå data om til et Javascript object
   var users = JSON.parse(usersRaw);
 
-  //tester
-  console.log(users);
-
-  // Hvis users id er det samme id som det jeg skal redigere får jeg lov til at redigere følgende parametre
+  //Hvis userId er det samme som det id jeg skal redigere, får jeg lov til at redigere følgende parametre
   users.forEach((user,index)  => {
     if(user.id == userId){
       let editUser = {
@@ -381,28 +372,28 @@ router.get('/api/users/edit', function(req, res, next) {
         "email": email,
         "password": password,
         "userId": userId
-        };
-        //Jeg tager brugeren udfra dets plads i arrayet og redigere i lige præcis det
-        users[index] = editUser
+      };
+      //Jeg tager brugeren udfra dets plads i arrayet og redigere i lige præcis det
+      users[index] = editUser
     }
-    });
+  });
 
-    //Lav vores products object om til JSON igen..
-    var newDataToSave = JSON.stringify(users);
+  //Lav vores users object om til JSON igen..
+  var newDataToSave = JSON.stringify(users);
 
-    //Overskriv den gamle products.json med vores nye products object
-    fs.writeFile('users.json', newDataToSave, err => {
+  //Overskriv den gamle users.json med vores nye user object
+  fs.writeFile('users.json', newDataToSave, err => {
+
     // error checking
     if(err) throw err;  
-    console.log("New data added");
-    });
+  });
 
   //Returner besked til klienten.
-    res.send('brugeren redigeret '+name+' - '+email+' - '+password);
+  res.send('brugeren redigeret '+name+' - '+email+' - '+password);
 });
 
 //slet bruger
-// Vi tager id'et fra URL'en. Looper alle users igennem og sletter hvis vi finder det samme id.
+//Vi tager id'et fra URL'en. Looper alle users igennem og sletter hvis vi finder det samme id.
 router.get('/api/users/delete', function(req, res, next) {
   var deleteUserId = req.query.userId;  
 
@@ -414,32 +405,28 @@ router.get('/api/users/delete', function(req, res, next) {
     
     //Hent data fra filen
     var usersRaw = fs.readFileSync('users.json');
+
     // laver det om til et js element
     var users = JSON.parse(usersRaw);
 
     users.forEach((user,index)  => {
-      console.log(index);
       
-      //Find produkt med korrekt id til at slette
-     if(user.userId == deleteUserId) {
-       console.log('fundet id til at slette');
+      //Find user med korrekt id til at slette
+      if(user.userId == deleteUserId) {
         users.splice(index, 1);
-      }
-      
+      };
     });
-    console.log(users);
    
-  //Lav vores products object om til JSON igen..
-  var newDataToSave = JSON.stringify(users);
+    //Lav vores users object om til JSON igen..
+    var newDataToSave = JSON.stringify(users);
 
-  //Overskriv den gamle products.json med vores nye products object efter der er et produkt der er blevet slettet
-  fs.writeFile('users.json', newDataToSave, err => {
-    // error checking
-  if(err) throw err;  
-  });
-  res.send(deleteUserId);
-  } 
-
+    //Overskriv den gamle users.json med vores nye users object efter der er en bruger der er blevet slettet
+    fs.writeFile('users.json', newDataToSave, err => {
+      // error checking
+      if(err) throw err;  
+    });
+    res.send(deleteUserId);
+  }; 
 });
 
 module.exports = router;

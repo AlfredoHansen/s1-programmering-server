@@ -50,7 +50,7 @@ router.get('/api/products', function(req, res, next) {
 
 //Lav Produkt
 //Hent produkt
-router.get('/api/products/create', function(req, res, next) {
+router.post('/api/products/create', function(req, res, next) {
 
   //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
   let title = req.query.title;
@@ -66,6 +66,9 @@ router.get('/api/products/create', function(req, res, next) {
   //Lav rå data om til et Javascript object
   var products = JSON.parse(productsRaw);
 
+  //Kalder min upload image funktion
+  var imageName = uploadImage(req, id);
+
   //Lavet et nyt product object ved at bruge vores titel, beskrivelse, pris, kategori, id og userId
   let newProduct = {
     "title": title,
@@ -73,7 +76,8 @@ router.get('/api/products/create', function(req, res, next) {
     "price": price,
     "category": category,
     "id": id,
-    "userId": userId
+    "userId": userId,
+    "productImage": imageName
   }
   //Push vores nye object til vores products object
   products.push(newProduct);
@@ -428,5 +432,32 @@ router.get('/api/users/delete', function(req, res, next) {
     res.send(deleteUserId);
   }
 });
+
+//Tilføj billede
+function uploadImage(req, productId) {
+  try {
+    if(!req.files) {
+        res.send({
+            status: false,
+            message: 'No file uploaded'
+        });
+      } else {
+        
+        let productImage = req.files.product;
+        
+        //laver filens sti på serveren 
+        var filePath = '/uploads/' + productId + '_' + productImage.name;
+
+        //Flyt billedet til filens sti
+        productImage.mv('./public' + filePath);
+
+        //Retuner filens sti
+        return filePath;
+
+      }  
+  } catch (err) {
+      res.status(500).send(err);
+    } 
+}
 
 module.exports = router;

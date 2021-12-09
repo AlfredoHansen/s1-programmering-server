@@ -3,7 +3,6 @@ var router = express.Router();
 const fs = require('fs');
 
 // PRODUKT SERVER
-
 //Alle produkter
 //Route /products - hent alle products
 router.get('/api/products', function(req, res, next) {
@@ -47,6 +46,7 @@ router.get('/api/products', function(req, res, next) {
     res.send('File not found!');
   }
 });
+
 
 //Lav Produkt
 //Hent produkt
@@ -208,7 +208,8 @@ router.get('/api/products/edit', function(req, res, next) {
         "price": price,
         "category": category,
         "id": id,
-        "userId": userId
+        "userId": userId,
+        "productImage": product.productImage
       };
       //Jeg tager produktet udfra dets plads i arrayet og redigere i lige præcis det
       products[index] = editProduct
@@ -269,7 +270,6 @@ router.get('/api/users/create', function(req, res, next) {
 
   //Returner besked til klienten.
   res.send('Ny bruger oprettet '+name+' - '+email+' - '+password+' - '+id);
-
 });
 
 //Giv hver user et random id
@@ -375,7 +375,7 @@ router.get('/api/users/edit', function(req, res, next) {
         "name": name,
         "email": email,
         "password": password,
-        "userId": userId
+        "id": userId
       }
       //Jeg tager brugeren udfra dets plads i arrayet og redigere i lige præcis det
       users[index] = editUser
@@ -416,7 +416,7 @@ router.get('/api/users/delete', function(req, res, next) {
     users.forEach((user,index)  => {
       
       //Find user med korrekt id til at slette
-      if(user.userId == deleteUserId) {
+      if(user.id == deleteUserId) {
         users.splice(index, 1);
       }
     });
@@ -438,23 +438,23 @@ function uploadImage(req, productId) {
   try {
     if(!req.files) {
         res.send({
-            status: false,
-            message: 'No file uploaded'
+          status: false,
+          message: 'No file uploaded'
         });
-      } else {
+    } else {
         
-        let productImage = req.files.product;
+      let productImage = req.files.product;
         
-        //laver filens sti på serveren 
-        var filePath = '/uploads/' + productId + '_' + productImage.name;
+      //laver filens sti på serveren 
+      var filePath = '/uploads/' + productId + '_' + productImage.name;
 
-        //Flyt billedet til filens sti
-        productImage.mv('./public' + filePath);
+      //Flyt billedet til filens sti
+      productImage.mv('./public' + filePath);
 
-        //Retuner filens sti
-        return filePath;
+      //Retuner filens sti
+      return filePath;
 
-      }  
+    }  
   } catch (err) {
       res.status(500).send(err);
     } 

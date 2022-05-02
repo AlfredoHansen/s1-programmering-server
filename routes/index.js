@@ -2,439 +2,562 @@ var express = require('express');
 var router = express.Router();
 const fs = require('fs');
 
+//Importer database pakke
+const { Connection, Request } = require("tedious");
+
+//Lave database konfigurationer
+const config = {
+  authentication: {
+    options: {
+      userName: "Alfredo", // update me
+      password: "Natoli91" // update me
+    },
+    type: "default"
+  },
+  server: "serverdbaa.database.windows.net", // update me
+  options: {
+    database: "DBA", //update me
+    encrypt: true,
+    useColumnNames : true,
+  }
+};
+
+//http://localhost:3000/api/databaseinsert?email=test@gmail&name=Test&password=secretthing&is_gold=1&usertype_id=1
+router.get('/api/databaseinsert', function(req, res, next) {
+
+  //Brug af query parameter fra URL'en 
+  //Eksempelvis = http://localhost:3000/api/databasetestnew?email=oll@gmail.com
+  //let email = req.query.email;
+  let name = req.query.name;
+  let email = req.query.email;
+  let password = req.query.password;
+  let is_gold = req.query.is_gold;
+  let usertype_id = req.query.usertype_id;
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+
+      var sqlString = "INSERT INTO Eksamen.users (name, email, password, is_gold, usertype_id) VALUES ('"+name+"', '"+email+"', '"+password+"', '"+is_gold+"', '"+usertype_id+"')";
+      //var sqlString = "SELECT * FROM Eksamen.users WHERE email = 'sof@gmail.com'";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      //Nu har den fundet alle rækker i jeres database
+      request.on('requestCompleted', function () { 
+
+        var userResponse = {
+          'name': name,
+          'email': email,
+          'password': password,
+          'is_gold': is_gold,
+          'usertype_id': usertype_id
+        }
+
+        //Send response tilbage
+        res.send(userResponse);
+
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+
+});
+
+//http://localhost:3000/api/databasetestnew?id=12
+router.get('/api/databasetestnew', function(req, res, next) {
+
+  //Brug af query parameter fra URL'en 
+  //Eksempelvis = http://localhost:3000/api/databasetestnew?email=oll@gmail.com
+  //let email = req.query.email;
+  let id = req.query.id;
+
+  console.log(id);
+
+  //Et array hvor vi gemmer alle vores bruger objekter fra databasen
+  var userResponse = [];
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      var sqlString = "SELECT * FROM Eksamen.users WHERE id = '"+id+"'";
+      //var sqlString = "SELECT * FROM Eksamen.users WHERE email = 'sof@gmail.com'";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      request.on('row', function(columns) {
+        var _item = {};
+        for (var name in columns) {
+          _item[columns[name].metadata.colName] = columns[name].value;
+        }
+
+        //Tilføjer i til jeres response obj
+        userResponse.push(_item);
+
+      });
+      
+      //Nu har den fundet alle rækker i jeres database
+      request.on('requestCompleted', function () { 
+
+        //Send response tilbage
+        res.send(userResponse);
+
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+
+});
+
+//http://localhost:3000/api/databasetest
+router.get('/api/databasetest', function(req, res, next) {
+
+  var userResponse = [];
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      // Read all rows from table
+      const request = new Request(
+        `SELECT * FROM Eksamen.users`,
+        //`SELECT name, email, is_gold FROM Eksamen.users`,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      request.on('row', function(columns) {
+
+        var _item = {};
+
+        for (var name in columns) {
+
+          _item[columns[name].metadata.colName] = columns[name].value;
+        }
+        
+        userResponse.push(_item);
+
+
+      });
+      
+      request.on('requestCompleted', function () { 
+        res.send(userResponse);
+      });
+
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+
+});
+
 // PRODUKT SERVER
 //Alle produkter
 //Route /products - hent alle products
 router.get('/api/products', function(req, res, next) {
 
   //Hent category fra URL params
-  let category = req.query.category;
+  let category_id = req.query.category_id;
+  let location = req.query.location;
+  let price = req.query.price;
+  let color = req.query.color;
   
-  //Denne linie kigger på om filen exsistere
-  var file_exist = fs.existsSync('products.json');
+  var productsResponse = [];
 
-  //Tjek her om filen faktisk eksitere
-  if (file_exist) {
-    
-    //Hent data fra filen
-    var data = fs.readFileSync('products.json');
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
 
-    //Konverter vores data til json
-    products = JSON.parse(data);
-    
-    //Hvis category ikke er med i requestet til serveren, så skal den bare returnere alle produkter
-    if(!category) {
-      res.send(products);
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
     } else {
+      
 
-      //Her ved vi at category er sat, så derfor filtrerer produkterne
-      var filteredProducts = [];
+      var sqlString = `
+      SELECT 
+        [Eksamen].[products].id,
+        [Eksamen].[products].name,
+        [Eksamen].[products].IMG,
+        [Eksamen].[products].price,
+        [Eksamen].[products].date,
+        [Eksamen].[products].location,
+        [Eksamen].[products].color,
+        [Eksamen].[products].description,
+        [Eksamen].[products].category_id,
+        [Eksamen].[products].user_id
+      FROM
+        [Eksamen].[products]
+      INNER JOIN
+        [Eksamen].[users] ON [Eksamen].[products].user_id = [Eksamen].[users].id `;
 
-      products.forEach(product => {
-        //Tag kun de produkter som passer på vores kategori
-        if(product.category == category) {
-          filteredProducts.push(product) 
+        if(category_id) {
+          sqlString += 'WHERE [Eksamen].[products].category_id = '+category_id+' ';
         }
+        if(location) {
+          sqlString += 'AND [Eksamen].[products].location = '+location+' ';
+        }
+        if(price) {
+          sqlString += 'AND [Eksamen].[products].price <= '+price+' ';
+        }
+        if(color) {
+          sqlString += 'AND [Eksamen].[products].color = \''+color+'\' ';
+        }
+
+      sqlString += `
+      ORDER BY 
+        [Eksamen].[users].is_gold DESC,
+        [Eksamen].[products].id DESC
+        ;
+      `;
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      request.on('row', function(columns) {
+
+        var _item = {};
+
+        for (var name in columns) {
+
+          _item[columns[name].metadata.colName] = columns[name].value;
+        }
+        
+        productsResponse.push(_item);
+
+
       });
       
-      //Response med de filtrerede produkter
-      res.send(filteredProducts);
-    }
+      request.on('requestCompleted', function () { 
+        res.send(productsResponse);
+      });
 
-    } else {
-    //Hvis ikke så fortæl brugeren at den ikke findes
-    res.send('File not found!');
-  }
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+
 });
 
+// KATEGORI SERVER
+//Alle kategorier
+//Route /categories - hent alle categories
+router.get('/api/categories', function(req, res, next) {
+
+  var categoriesResponse = [];
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      var sqlString = "SELECT * FROM Eksamen.categories";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      request.on('row', function(columns) {
+
+        var _item = {};
+
+        for (var name in columns) {
+
+          _item[columns[name].metadata.colName] = columns[name].value;
+        }
+        
+        categoriesResponse.push(_item);
+
+
+      });
+      
+      request.on('requestCompleted', function () { 
+        res.send(categoriesResponse);
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+
+});
+
+//Lad en bruger følge et produkt
+router.get('/api/products/follow', function(req, res, next) {
+
+  //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
+  let userId = req.query.userId;
+  let productId = req.query.productId;
+  
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      var sqlString = "INSERT INTO [Eksamen].[users_products] (user1_id, product_id) VALUES ('"+userId+"', '"+productId+"');";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      //Nu har den fundet alle rækker i jeres database
+      request.on('requestCompleted', function () { 
+
+        var productResponse = {
+          'userId': userId,
+          'productId': productId
+        }
+
+        //Send response tilbage
+        res.send(productResponse);
+
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+});
 
 //Lav Produkt
 //Hent produkt
 router.post('/api/products/create', function(req, res, next) {
 
   //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
-  let title = req.query.title;
+  let name = req.query.name;
   let description = req.query.description;
   let price = req.query.price;
-  let category = req.query.category;
-  let id = makeid(10);
-  let userId = req.query.userId;
+  let category_id = req.query.category_id;
+  let user_id = req.query.user_id;
+  let date = req.query.date.replace('T', ' ');
+  let location = req.query.location;
+  let color = req.query.color;
+  let imagePath = uploadImage(req, makeid(10));
 
-  //Hent products fil
-  var productsRaw = fs.readFileSync('products.json');
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
 
-  //Lav rå data om til et Javascript object
-  var products = JSON.parse(productsRaw);
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      // Vi skriver i SQL sprog, som betyder at INSER INTO (de "ting" der skal indsættes i) og derefter VALUES som er værdierne der bliver tilføjet
+      var sqlString = "INSERT INTO Eksamen.products (name, description, price, category_id, user_id, date, location, color, IMG) VALUES ('"+name+"', '"+description+"', '"+price+"', '"+category_id+"', '"+user_id+"', '"+date+"', '"+location+"', '"+color+"', '"+imagePath+"')";
+      //var sqlString = "SELECT * FROM Eksamen.users WHERE email = 'sof@gmail.com'";
 
-  //Kalder min upload image funktion
-  var imageName = uploadImage(req, id);
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
 
-  //Lavet et nyt product object ved at bruge vores titel, beskrivelse, pris, kategori, id og userId
-  let newProduct = {
-    "title": title,
-    "description": description,
-    "price": price,
-    "category": category,
-    "id": id,
-    "userId": userId,
-    "productImage": imageName
-  }
-  //Push vores nye object til vores products object
-  products.push(newProduct);
+      //Nu har den fundet alle rækker i jeres database
+      request.on('requestCompleted', function () { 
 
-  //Lav vores products object om til JSON igen
-  var newDataToSave = JSON.stringify(products);
+        var productResponse = {
+          'name': name,
+          'description': description,
+          'price': price,
+          'category_id': category_id,
+          'user_id': user_id,
+          'date': date,
+          'location': location,
+          'color': color,
+          'IMG': imagePath,
+        }
 
-  //Overskriv den gamle products.json med vores nye products object
-  fs.writeFile('products.json', newDataToSave, err => {
+        //Send response tilbage
+        res.send(productResponse);
 
-    // error checking
-    if(err) throw err;  
-    console.log("New data added");
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
   });
 
-  //Returner besked til klienten.
-  res.send('Nyt produkt tilføjet '+title+' - '+description+' - '+price+' - '+category);
+  connection.connect();
 });
 
-
-
-//Route /products - hent alle products
-router.get('/api/products', function(req, res, next) {
-  
-  //Denne linie kigger på om filen exsistere
-  var file_exist = fs.existsSync('products.json');
-
-  //Tjek her om filen faktisk eksitere
-  if (file_exist) {
-    
-    //Hent data fra filen
-    var data = fs.readFileSync('products.json');
-    
-    //Konverter vores data til json
-    obj = JSON.parse(data);
-
-    //Returner json til klienten
-    res.send(obj);
-
-  } else {
-    
-    //Hvis ikke så fortæl brugeren at den ikke findes
-    res.send('File not found!');
-  }
-});
-
-//Giv hvert produkt et random id
-function makeid(length) {
-  var result           = '';
-  var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  var charactersLength = characters.length;
-  for ( var i = 0; i < length; i++ ) {
-    result += characters.charAt(Math.floor(Math.random() * 
-    charactersLength));
- }
- return result;
-}
-
-//slet produkt
-// Vi tager id'et fra URL'en. Looper alle produkter igennem og sletter hvis vi finder det samme id.
-router.get('/api/products/delete', function(req, res, next) {
-  var deleteId = req.query.id;  
-
-  //Denne linie kigger på om filen exsistere
-  var file_exist = fs.existsSync('products.json');
-
-  //Tjek her om filen faktisk eksitere
-  if (file_exist) {
-    
-    //Hent data fra filen
-    var productsRaw = fs.readFileSync('products.json');
-
-    // laver det om til et js element
-    var products = JSON.parse(productsRaw);
-
-
-    products.forEach((product,index)  => {
-      
-      //Find produkt med korrekt id til at slette
-      if(product.id == deleteId) {
-        products.splice(index, 1);
-      }
-      
-    });
-   
-  //Lav vores products object om til JSON igen..
-  var newDataToSave = JSON.stringify(products);
-
-  //Overskriv den gamle products.json med vores nye products object efter der er et produkt der er blevet slettet
-  fs.writeFile('products.json', newDataToSave, err => {
-    // error checking
-    if(err) throw err;  
-  });
-  res.send(deleteId);
-
-  } else {
-
-    //Hvis ikke så fortæl brugeren at den ikke findes
-    res.send('File not found!');
-  }
-
-});
-
-//rediger produkt
-// Vi tager id'et fra URL'en. Looper alle produkter igennem og redigere hvis vi finder det samme id.
+//Update Produkt
 router.get('/api/products/edit', function(req, res, next) {
 
-  //Hent id, titel, beskrivelse, pris, kategori, og userId fra url params
-  let id = req.query.id;  
-  let title = req.query.title;
+  //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
+  let name = req.query.name;
   let description = req.query.description;
   let price = req.query.price;
-  let category = req.query.category;
-  let userId = req.query.userId;
+  let category_id = req.query.category_id;
+  let user_id = req.query.user_id;
+  let location = req.query.location;
+  let color = req.query.color;
+  let product_id = req.query.id;
 
-  //Hent products fil
-  var productsRaw = fs.readFileSync('products.json');
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
 
-  //Lavet rå data om til et Javascript object
-  var products = JSON.parse(productsRaw);
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+       
+      var sqlString = "UPDATE Eksamen.products SET name='"+name+"', description='"+description+"', price='"+price+"', category_id='"+category_id+"', user_id='"+user_id+"', location='"+location+"', color='"+color+"' WHERE id='"+product_id+"'";
 
-  //Hvis produktets id er det samme id som det jeg skal redigere får jeg lov til at redigere følgende parametre
-  products.forEach((product,index)  => {
-    if(product.id == id){
-      let editProduct = {
-        "title": title,
-        "description": description,
-        "price": price,
-        "category": category,
-        "id": id,
-        "userId": userId,
-        "productImage": product.productImage
-      };
-      //Jeg tager produktet udfra dets plads i arrayet og redigere i lige præcis det
-      products[index] = editProduct
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      //Nu har den fundet alle rækker i jeres database
+      request.on('requestCompleted', function () { 
+
+        var productResponse = {
+          'id': product_id,
+          'name': name,
+          'description': description,
+          'price': price,
+          'category_id': category_id,
+          'user_id': user_id,
+          'location': location,
+          'color': color,
+        }
+
+        //Send response tilbage
+        res.send(productResponse);
+
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
     }
-  });
-
-  //Lav vores products object om til JSON igen..
-  var newDataToSave = JSON.stringify(products);
-
-  //Overskriv den gamle products.json med vores nye products object
-  fs.writeFile('products.json', newDataToSave, err => {
-    // error checking
-    if(err) throw err;  
-  });
-
-  //Returner besked til klienten.
-  res.send('Produkt redigeret '+title+' - '+description+' - '+price+' - '+category);
-});
-  
-
-
-// USERS SERVER
-// Create user
-//Hent user
-router.get('/api/users/create', function(req, res, next) {
-
-  //Hent navn, email, password og tilfældigt id fra url params
-  let name = req.query.name;
-  let email = req.query.email;
-  let password = req.query.password;
-  let id = makeUserId(10);
-
-  //Hent user fil
-  var usersRaw = fs.readFileSync('users.json');
-
-  //Lavet rå data om til et Javascript object
-  var users = JSON.parse(usersRaw);
-
-  //Lavet et nyt user object ved at bruge vores navn, email, password og id
-  let newUser = {
-    "name": name,
-    "email": email,
-    "password": password,
-    "id": id
-  }
-
-  //Push vores nye object til vores users object
-  users.push(newUser);
-
-  //Lav vores users object om til JSON igen..
-  var newDataToSave = JSON.stringify(users);
-
-  //Overskriv den gamle users.json med vores nye users object
-  fs.writeFile('users.json', newDataToSave, err => {
-    // error checking
-    if(err) throw err;  
-  });
-
-  //Returner besked til klienten.
-  res.send('Ny bruger oprettet '+name+' - '+email+' - '+password+' - '+id);
-});
-
-//Giv hver user et random id
-function makeUserId(length) {
-  var result           = '';
-  var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  var charactersLength = characters.length;
-  for ( var i = 0; i < length; i++ ) {
-    result += characters.charAt(Math.floor(Math.random() * 
-    charactersLength));
-  }
- return result;
-}
-
-
-// Log ind
-//Hent user
-router.get('/api/users/login', function(req, res, next) {
-  
-  //Hent email og password fra url params
-  let email = req.query.email;
-  let password = req.query.password;
-
-  //Denne linie kigger på om filen exsistere
-  var file_exist = fs.existsSync('users.json');
-
-  //Tjek her om filen faktisk eksitere
-  if (file_exist) {
-
-    //Hent data fra filen
-    var usersRaw = fs.readFileSync('users.json');
-
-    // laver det om til et js element
-    var users = JSON.parse(usersRaw);
-
-    // Hvis users id er det samme id som det jeg er logget ind med kan jeg logge ind
-    users.forEach((user,index)  => {
-
-      //tjekker om en email og et password passer på en eksisterende bruger
-      if(user.email == email && user.password == password) {
-        res.send(user);
-      }
-    });
-    res.send({ 'failed':'Kunne ikke finde bruger'});
-  }
-
-});
-
-//Muligheden for at kunne se ens egne produkter når man er logget ind: 
-
-//Route /products - hent alle products
-router.get('/api/users/profile', function(req, res, next) {
-  
-  //Henter vores userId fra URL params
-  let userId = req.query.userId;
-  
-  //Denne linie kigger på om filen exsistere
-  var file_exist = fs.existsSync('products.json');
-
-  //Tjek her om filen faktisk eksitere
-  if (file_exist) {
-
-    //Hent data fra filen
-    var data = fs.readFileSync('products.json');
-
-    //Konverter vores data til json
-    var products = JSON.parse(data);
-  
-    //Her ved vi at userId er sat, så derfor filtere vi..
-    var filteredUserProducts = [];
-
-    products.forEach(product => {
-      //Tag kun de produkter som passer på vores userId og dermed oprettet af en user med samme userId
-      if(product.userId == userId) {
-        filteredUserProducts.push(product) 
-      }
     
-    }) 
-    res.send(filteredUserProducts);
-  }
-});
-
-//Rediger Bruger
-//Vi tager id'et fra URL'en. Looper alle brugere igennem og redigere hvis vi finder en bruger med samme id.
-router.get('/api/users/edit', function(req, res, next) {  
-
-  //Henter name, email, password og userId fra vores URL params
-  let name = req.query.name;
-  let email = req.query.email;
-  let password = req.query.password;
-  let userId = req.query.userId;
-
-  //Hent users fil
-  var usersRaw = fs.readFileSync('users.json');
-
-  //Lavet rå data om til et Javascript object
-  var users = JSON.parse(usersRaw);
-
-  //Hvis userId er det samme som det id jeg skal redigere, får jeg lov til at redigere følgende parametre
-  users.forEach((user,index)  => {
-    if(user.id == userId){
-      let editUser = {
-        "name": name,
-        "email": email,
-        "password": password,
-        "id": userId
-      }
-      //Jeg tager brugeren udfra dets plads i arrayet og redigere i lige præcis det
-      users[index] = editUser
-    }
   });
 
-  //Lav vores users object om til JSON igen..
-  var newDataToSave = JSON.stringify(users);
-
-  //Overskriv den gamle users.json med vores nye user object
-  fs.writeFile('users.json', newDataToSave, err => {
-
-    // error checking
-    if(err) throw err;  
-  });
-
-  //Returner besked til klienten.
-  res.send('brugeren redigeret '+name+' - '+email+' - '+password);
-});
-
-//slet bruger
-//Vi tager id'et fra URL'en. Looper alle users igennem og sletter hvis vi finder det samme id.
-router.get('/api/users/delete', function(req, res, next) {
-  var deleteUserId = req.query.userId;  
-
-  //Denne linie kigger på om filen exsistere
-  var file_exist = fs.existsSync('users.json');
-
-  //Tjek her om filen faktisk eksitere
-  if (file_exist) {
-    
-    //Hent data fra filen
-    var usersRaw = fs.readFileSync('users.json');
-
-    // laver det om til et js element
-    var users = JSON.parse(usersRaw);
-
-    users.forEach((user,index)  => {
-      
-      //Find user med korrekt id til at slette
-      if(user.id == deleteUserId) {
-        users.splice(index, 1);
-      }
-    });
-   
-    //Lav vores users object om til JSON igen..
-    var newDataToSave = JSON.stringify(users);
-
-    //Overskriv den gamle users.json med vores nye users object efter der er en bruger der er blevet slettet
-    fs.writeFile('users.json', newDataToSave, err => {
-      // error checking
-      if(err) throw err;  
-    });
-    res.send(deleteUserId);
-  }
+  connection.connect();
 });
 
 //Tilføj billede
-function uploadImage(req, productId) {
+function uploadImage(req, imageId) {
   try {
     if(!req.files) {
         res.send({
@@ -446,7 +569,7 @@ function uploadImage(req, productId) {
       let productImage = req.files.product;
         
       //laver filens sti på serveren 
-      var filePath = '/uploads/' + productId + '_' + productImage.name;
+      var filePath = '/uploads/' + imageId + '_' + productImage.name;
 
       //Flyt billedet til filens sti
       productImage.mv('./public' + filePath);
@@ -460,4 +583,597 @@ function uploadImage(req, productId) {
     } 
 }
 
+
+//Giv hvert produkt et random id
+function makeid(length) {
+  var result           = '';
+  var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  var charactersLength = characters.length;
+  for ( var i = 0; i < length; i++ ) {
+    result += characters.charAt(Math.floor(Math.random() * 
+    charactersLength));
+ }
+ return result;
+}  
+
+// USERS SERVER
+// Create user
+//Hent user
+router.get('/api/users/create', function(req, res, next) {
+
+  //Hent navn, email, password og tilfældigt id fra url params
+  let name = req.query.name;
+  let email = req.query.email;
+  let password = req.query.password;
+  let is_gold = req.query.is_gold;
+  let usertype_id = req.query.usertype_id;
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      // Vi skriver i SQL sprog, som betyder at INSER INTO (de "ting" der skal indsættes i) og derefter VALUES som er værdierne der bliver tilføjet
+      var sqlString = "INSERT INTO Eksamen.users (name, email, password, is_gold, usertype_id) VALUES ('"+name+"', '"+email+"', '"+password+"', '"+is_gold+"', '"+usertype_id+"')";
+    
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      //Nu har den fundet alle rækker i jeres database
+      request.on('requestCompleted', function () { 
+
+        var userResponse = {
+          'name': name,
+          'email': email,
+          'password': password,
+          'is_gold': is_gold,
+          'usertype_id': usertype_id
+        }
+
+        //Send response tilbage
+        res.send(userResponse);
+
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+});
+
+// Log ind
+//Hent user
+router.get('/api/users/login', function(req, res, next) {
+  
+  //Hent navn, email, password og tilfældigt id fra url params
+  let email = req.query.email;
+  let password = req.query.password;
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  var userResponse = [];
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      // Vi skriver i SQL sprog, som betyder at INSER INTO (de "ting" der skal indsættes i) og derefter VALUES som er værdierne der bliver tilføjet
+      var sqlString = "SELECT * FROM Eksamen.users WHERE email ='"+email+"' AND password ='"+password+"'";
+      //var sqlString = "SELECT * FROM Eksamen.users WHERE email = 'sof@gmail.com'";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+
+      );
+
+      request.on('row', function(columns) {
+        var _item = {};
+        for (var name in columns) {
+          _item[columns[name].metadata.colName] = columns[name].value;
+        }
+
+        //Tilføjer i til jeres response obj
+        userResponse.push(_item);
+
+      });
+
+      //Nu har den fundet alle rækker i jeres database
+      request.on('requestCompleted', function () { 
+
+        //Send response tilbage
+        res.send(userResponse);
+
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+});
+
+// Dette endpoint bliver brugt af admins til at hente alle brugere ud
+//Hent alle users
+router.get('/api/admin/users', function(req, res, next) {
+  
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  var userResponse = [];
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+
+
+      // Vi skriver i SQL sprog, som betyder at INSER INTO (de "ting" der skal indsættes i) og derefter VALUES som er værdierne der bliver tilføjet
+      //var sqlString = "SELECT * FROM Eksamen.users";
+
+      var sqlString = `
+      SELECT 
+      [Eksamen].[users].id,
+      [Eksamen].[users].name,
+      [Eksamen].[users].email,
+      [Eksamen].[users].password,
+      [Eksamen].[users].is_gold,
+      [Eksamen].[users].usertype_id,
+      COUNT([Eksamen].[products].id) AS total_product_count
+    FROM
+      [Eksamen].[users]
+    LEFT JOIN
+      [Eksamen].[products] ON [Eksamen].[users].id = [Eksamen].[products].user_id
+    GROUP BY 
+      [Eksamen].[users].id,
+      [Eksamen].[users].name,
+      [Eksamen].[users].email,
+      [Eksamen].[users].password,
+      [Eksamen].[users].is_gold,
+      [Eksamen].[users].usertype_id;
+      `;
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+
+      );
+
+      request.on('row', function(columns) {
+        var _item = {};
+        for (var name in columns) {
+          _item[columns[name].metadata.colName] = columns[name].value;
+        }
+
+        //Tilføjer i til jeres response obj
+        userResponse.push(_item);
+
+      });
+
+      //Nu har den fundet alle rækker i jeres database
+      request.on('requestCompleted', function () { 
+
+        //Send response tilbage
+        res.send(userResponse);
+
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+});
+
+// Delete user
+//Slet et enkelt produkt
+router.get('/api/admin/users/delete', function(req, res, next) {
+
+  let userId = req.query.id;
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      var sqlString = "DELETE FROM Eksamen.users WHERE id=+'"+userId+"'";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+  
+      request.on('requestCompleted', function () { 
+        res.send('deleted');
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+
+});
+
+// Delete produkt
+//Slet et enkelt produkt
+router.get('/api/products/delete', function(req, res, next) {
+
+  let productId = req.query.id;
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      var sqlString = "DELETE FROM Eksamen.products WHERE id=+'"+productId+"'";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+  
+      request.on('requestCompleted', function () { 
+        res.send('deleted');
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+
+});
+
+// User profile
+//Alle users produkter
+router.get('/api/users/profile', function(req, res, next) {
+
+  let userId = req.query.userId;
+
+  var productsResponse = [];
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      var sqlString = "SELECT * FROM Eksamen.products WHERE user_id=+'"+userId+"'";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      request.on('row', function(columns) {
+
+        var _item = {};
+
+        for (var name in columns) {
+
+          _item[columns[name].metadata.colName] = columns[name].value;
+        }
+        
+        productsResponse.push(_item);
+
+
+      });
+      
+      request.on('requestCompleted', function () { 
+        res.send(productsResponse);
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+
+});
+
+// User profile
+//Alle users produkter
+router.get('/api/users/products-follows', function(req, res, next) {
+
+  let userId = req.query.userId;
+
+  var productsResponse = [];
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+      
+      var sqlString = "SELECT * FROM [Eksamen].[users_products] LEFT JOIN [Eksamen].[products] ON [Eksamen].[products].id = [Eksamen].[users_products].product_id WHERE user1_id = '"+userId+"' ORDER BY [Eksamen].[users_products].id DESC;";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      request.on('row', function(columns) {
+
+        var _item = {};
+
+        for (var name in columns) {
+
+          _item[columns[name].metadata.colName] = columns[name].value;
+        }
+        
+        productsResponse.push(_item);
+
+
+      });
+      
+      request.on('requestCompleted', function () { 
+        res.send(productsResponse);
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+
+});
+
+//Update user
+router.get('/api/users/edit', function(req, res, next) {
+
+  //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
+  let name = req.query.name;
+  let password = req.query.password;
+  let email = req.query.email;
+  let user_id = req.query.user_id;
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+       
+      var sqlString = "UPDATE Eksamen.users SET name='"+name+"', email='"+email+"', password='"+password+"' WHERE id='"+user_id+"'";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      //Nu har den fundet alle rækker i jeres database
+      request.on('requestCompleted', function () { 
+
+        var userResponse = {
+          'id': user_id
+        }
+
+        //Send response tilbage
+        res.send(userResponse);
+
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+});
+
+//Update user
+router.get('/api/admin/users/edit', function(req, res, next) {
+
+  //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
+  let name = req.query.name;
+  let password = req.query.password;
+  let email = req.query.email;
+  let user_id = req.query.user_id;
+  let usertype_id = req.query.usertype_id;
+  let is_gold = req.query.is_gold;
+
+  //Forbind med database konfigurationer
+  const connection = new Connection(config);
+
+  // Check on der er hul til databasen
+  connection.on("connect", err => {
+    if (err) {
+      console.error(err.message);
+    } else {
+       
+      var sqlString = "UPDATE Eksamen.users SET name='"+name+"', email='"+email+"', password='"+password+"', usertype_id='"+usertype_id+"', is_gold='"+is_gold+"' WHERE id='"+user_id+"'";
+
+      // Read all rows from table
+      const request = new Request(
+        sqlString,
+          (err, rowCount) => {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.log(`${rowCount} row(s) returned`);
+          }
+        }
+      );
+
+      //Nu har den fundet alle rækker i jeres database
+      request.on('requestCompleted', function () { 
+
+        var userResponse = {
+          'id': user_id
+        }
+
+        //Send response tilbage
+        res.send(userResponse);
+
+      });
+
+      //"Afyre" SQL request
+      connection.execSql(request);
+
+    }
+    
+  });
+
+  connection.connect();
+});
+
+//slet bruger
+router.get('/api/users/delete', function(req, res, next) {
+    
+    let id = req.query.id;
+  
+    //Forbind med database konfigurationer
+    const connection = new Connection(config);
+  
+    // Check on der er hul til databasen
+    connection.on("connect", err => {
+      if (err) {
+        console.error(err.message);
+      } else {
+        
+        // Vi skriver i SQL sprog, som betyder at INSER INTO (de "ting" der skal indsættes i) og derefter VALUES som er værdierne der bliver tilføjet
+        var sqlString = "DELETE FROM Eksamen.users WHERE id='"+id+"'";
+  
+        // Read all rows from table
+        const request = new Request(
+          sqlString,
+            (err, rowCount) => {
+            if (err) {
+              console.error(err.message);
+            } else {
+              console.log(`${rowCount} row(s) returned`);
+            }
+          }
+        );
+  
+        //Nu har den fundet alle rækker i jeres database
+        request.on('requestCompleted', function () { 
+  
+          var userResponse = {
+            'id': id,
+          }
+  
+          //Send response tilbage
+          res.send(userResponse);
+  
+        });
+  
+        //"Afyre" SQL request
+        connection.execSql(request);
+  
+      }
+      
+    });
+  
+    connection.connect();
+  });
 module.exports = router;

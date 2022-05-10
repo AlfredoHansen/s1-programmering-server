@@ -24,27 +24,31 @@ const config = {
 
 // PRODUKT SERVER
 //Alle produkter
-//Route /products - hent alle products
+//Route /products - hent alle products på endpointet /api/products
 router.get('/api/products', function(req, res, next) {
 
-  //Hent category fra URL params
+  //Hent category_id, location, price og color fra URL params
   let category_id = req.query.category_id;
   let location = req.query.location;
   let price = req.query.price;
   let color = req.query.color;
   
+  //Tomt array
   var productsResponse = [];
 
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen, hvis ikke kastes der en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
       
-
+      //Her oprettes en SQL string, som skal hente product-info fra databasen
+      // SELECT = Hvilke info vi gerne vil hente fra Eksamen.products
+      // FROM = hvor vi gerne vil hente det fra ([Eksamen].[products])
+      // INNER JOIN = Her sammenlignes [Eksamen].[users]'s id med [Eksamen].[products]'s user_id. Laves for at finde ud af hvilke brugere der er guld
       var sqlString = `
       SELECT 
         [Eksamen].[products].id,
@@ -62,6 +66,7 @@ router.get('/api/products', function(req, res, next) {
       INNER JOIN
         [Eksamen].[users] ON [Eksamen].[products].user_id = [Eksamen].[users].id `;
 
+        // if-statementet kigger på om der er blevet sendt værdier med fra URL params. (category_id, location, price, color)
         if(category_id) {
           sqlString += 'WHERE [Eksamen].[products].category_id = '+category_id+' ';
         }
@@ -71,18 +76,19 @@ router.get('/api/products', function(req, res, next) {
         if(price) {
           sqlString += 'AND [Eksamen].[products].price <= '+price+' ';
         }
+        // color er indkapslet med \'\', dette er den eneste af de fire værdier der er en varchar
         if(color) {
           sqlString += 'AND [Eksamen].[products].color = \''+color+'\' ';
         }
+      
+        //Her placeres de i en rækkefølge hvorpå guld kommer øverst og derefter løber den igennem nyeste produkter
+        sqlString += `
+        ORDER BY 
+          [Eksamen].[users].is_gold DESC,
+          [Eksamen].[products].id DESC;
+        `;
 
-      sqlString += `
-      ORDER BY 
-        [Eksamen].[users].is_gold DESC,
-        [Eksamen].[products].id DESC
-        ;
-      `;
-
-      // Read all rows from table
+      // Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -93,21 +99,17 @@ router.get('/api/products', function(req, res, next) {
           }
         }
       );
-
+      //Disse linjer mapper generisk felter fra vores sql-statement og laver dem til objeker, som så bliver tilføjet til et array.
       request.on('row', function(columns) {
-
         var _item = {};
-
         for (var name in columns) {
-
           _item[columns[name].metadata.colName] = columns[name].value;
         }
-        
+      
         productsResponse.push(_item);
-
-
       });
       
+      //requesten hentes og bliver responderet
       request.on('requestCompleted', function () { 
         res.send(productsResponse);
       });
@@ -118,7 +120,7 @@ router.get('/api/products', function(req, res, next) {
     }
     
   });
-
+  //forbinder
   connection.connect();
 
 });
@@ -128,20 +130,22 @@ router.get('/api/products', function(req, res, next) {
 //Route /categories - hent alle categories
 router.get('/api/categories', function(req, res, next) {
 
+  //Tomt categoriesResponse array
   var categoriesResponse = [];
 
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
       
+      //Her oprettes en SQL string, som skal hente alt fra Eksamen.categories i databasen
       var sqlString = "SELECT * FROM Eksamen.categories";
 
-      // Read all rows from table
+      // Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -152,32 +156,28 @@ router.get('/api/categories', function(req, res, next) {
           }
         }
       );
-
+      //Disse linjer mapper generisk felter fra vores sql-statement og laver dem til objeker, som så bliver tilføjet til et array.
       request.on('row', function(columns) {
-
         var _item = {};
-
         for (var name in columns) {
-
           _item[columns[name].metadata.colName] = columns[name].value;
         }
         
         categoriesResponse.push(_item);
 
-
       });
       
+      //requesten hentes og bliver responderet
       request.on('requestCompleted', function () { 
         res.send(categoriesResponse);
       });
 
       //"Afyre" SQL request
       connection.execSql(request);
-
     }
     
   });
-
+  //forbinder
   connection.connect();
 
 });
@@ -185,22 +185,25 @@ router.get('/api/categories', function(req, res, next) {
 //Lad en bruger følge et produkt
 router.get('/api/products/follow', function(req, res, next) {
 
-  //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
+  //Hent userId og productId ud fra url params
   let userId = req.query.userId;
   let productId = req.query.productId;
   
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+ // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
-      
+
+      //Her oprettes en SQL string, som skal har til formål at indsætte nogle oplysninger i users_products tabellen
+      //INSERT INTO = Her indsættes user_id og product_id til [Eksamen].[users_products]
+      //VALUES = her indsættes værdierne der skal på user_id og product_id's plads
       var sqlString = "INSERT INTO [Eksamen].[users_products] (user1_id, product_id) VALUES ('"+userId+"', '"+productId+"');";
 
-      // Read all rows from table
+      // Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -212,9 +215,10 @@ router.get('/api/products/follow', function(req, res, next) {
         }
       );
 
-      //Nu har den fundet alle rækker i jeres database
+      //Nu har den fundet alle rækker i databasen
       request.on('requestCompleted', function () { 
 
+        //indsættes
         var productResponse = {
           'userId': userId,
           'productId': productId
@@ -231,7 +235,7 @@ router.get('/api/products/follow', function(req, res, next) {
     }
     
   });
-
+  //forbinder
   connection.connect();
 });
 
@@ -239,7 +243,7 @@ router.get('/api/products/follow', function(req, res, next) {
 //Hent produkt
 router.post('/api/products/create', function(req, res, next) {
 
-  //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
+  //Hent name, desciption, price, category_id, user_id, date, location, color, imagepath fra url params
   let name = req.query.name;
   let description = req.query.description;
   let price = req.query.price;
@@ -253,17 +257,18 @@ router.post('/api/products/create', function(req, res, next) {
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
       
-      // Vi skriver i SQL sprog, som betyder at INSER INTO (de "ting" der skal indsættes i) og derefter VALUES som er værdierne der bliver tilføjet
+      //Her oprettes en SQL string, som skal har til formål at indsætte nogle oplysninger i Eksamen.products tabellen
+      //INSERT INTO = Her indsættes name, description, price, category_id, user_id, date, location, color og IMG til [Eksamen].[products]
+      //VALUES = her indsættes værdierne der skal på name, description, price, category_id, user_id, date, location, color og IMG's plads
       var sqlString = "INSERT INTO Eksamen.products (name, description, price, category_id, user_id, date, location, color, IMG) VALUES ('"+name+"', '"+description+"', '"+price+"', '"+category_id+"', '"+user_id+"', '"+date+"', '"+location+"', '"+color+"', '"+imagePath+"')";
-      //var sqlString = "SELECT * FROM Eksamen.users WHERE email = 'sof@gmail.com'";
 
-      // Read all rows from table
+      // Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -275,9 +280,10 @@ router.post('/api/products/create', function(req, res, next) {
         }
       );
 
-      //Nu har den fundet alle rækker i jeres database
+      //Nu har den fundet alle rækker databasen
       request.on('requestCompleted', function () { 
 
+        //Her indsættes værdierne
         var productResponse = {
           'name': name,
           'description': description,
@@ -301,14 +307,14 @@ router.post('/api/products/create', function(req, res, next) {
     }
     
   });
-
+  //Forbinder
   connection.connect();
 });
 
-//Update Produkt
+//Rediger et Produkt
 router.get('/api/products/edit', function(req, res, next) {
 
-  //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
+  //Hent name, description, price, category_id, user_id, location, color og product_id ud fra url params
   let name = req.query.name;
   let description = req.query.description;
   let price = req.query.price;
@@ -321,15 +327,18 @@ router.get('/api/products/edit', function(req, res, next) {
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
-       
+      
+      //Her oprettes en SQL string, som skal har til formål at redigere i nogle oplysninger i Eksamen.products tabellen
+      //UPDATE = opdaterer nogle værdier i objekterne i tabellen
+      //SET = Specificere hvilke værdier der skal opdateres
       var sqlString = "UPDATE Eksamen.products SET name='"+name+"', description='"+description+"', price='"+price+"', category_id='"+category_id+"', user_id='"+user_id+"', location='"+location+"', color='"+color+"' WHERE id='"+product_id+"'";
 
-      // Read all rows from table
+      // Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -341,9 +350,10 @@ router.get('/api/products/edit', function(req, res, next) {
         }
       );
 
-      //Nu har den fundet alle rækker i jeres database
+      //Nu har den fundet alle rækker i databasen
       request.on('requestCompleted', function () { 
 
+        //Her indsættes værdierne
         var productResponse = {
           'id': product_id,
           'name': name,
@@ -355,7 +365,7 @@ router.get('/api/products/edit', function(req, res, next) {
           'color': color,
         }
 
-        //Send response tilbage
+        //Sender response tilbage
         res.send(productResponse);
 
       });
@@ -366,7 +376,7 @@ router.get('/api/products/edit', function(req, res, next) {
     }
     
   });
-
+  //Forbinder
   connection.connect();
 });
 
@@ -398,7 +408,7 @@ function uploadImage(req, imageId) {
 }
 
 
-//Giv hvert produkt et random id
+//Giv hvert billede et random id
 function makeid(length) {
   var result           = '';
   var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -410,12 +420,12 @@ function makeid(length) {
  return result;
 }  
 
-// USERS SERVER
-// Create user
+//USERS SERVER
+//Create user
 //Hent user
 router.get('/api/users/create', function(req, res, next) {
 
-  //Hent navn, email, password og tilfældigt id fra url params
+  //Hent name, email, password, is_gold og usertype_id ud fra url params
   let name = req.query.name;
   let email = req.query.email;
   let password = req.query.password;
@@ -425,17 +435,19 @@ router.get('/api/users/create', function(req, res, next) {
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
       
-      // Vi skriver i SQL sprog, som betyder at INSER INTO (de "ting" der skal indsættes i) og derefter VALUES som er værdierne der bliver tilføjet
+      //Her oprettes en SQL string, som skal har til formål at indsætte nogle oplysninger i Eksamen.users tabellen
+      //INSERT INTO = Her indsættes name, email, password, is_gold og usertype_id til [Eksamen].[products]
+      //VALUES = her indsættes værdierne der skal på name, email, password, is_gold og usertype_id's plads
       var sqlString = "INSERT INTO Eksamen.users (name, email, password, is_gold, usertype_id) VALUES ('"+name+"', '"+email+"', '"+password+"', '"+is_gold+"', '"+usertype_id+"')";
     
 
-      // Read all rows from table
+      // Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -447,9 +459,10 @@ router.get('/api/users/create', function(req, res, next) {
         }
       );
 
-      //Nu har den fundet alle rækker i jeres database
+      //Nu har den fundet alle rækker i databasen
       request.on('requestCompleted', function () { 
 
+        //Her indsættes værdierne
         var userResponse = {
           'name': name,
           'email': email,
@@ -469,34 +482,36 @@ router.get('/api/users/create', function(req, res, next) {
     }
     
   });
-
+  //Forbinder
   connection.connect();
 });
 
-// Log ind
+//Log ind
 //Hent user
 router.get('/api/users/login', function(req, res, next) {
   
-  //Hent navn, email, password og tilfældigt id fra url params
+  //Hent navn og password ud fra url params
   let email = req.query.email;
   let password = req.query.password;
 
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
+  //Tomt array
   var userResponse = [];
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
       
-      // Vi skriver i SQL sprog, som betyder at INSER INTO (de "ting" der skal indsættes i) og derefter VALUES som er værdierne der bliver tilføjet
+      //Her oprettes en SQL string, som skal har til formål at hente alle oplysninger i Eksamen.users tabellen hvor det stemmer overens med de indtastede oplysninger.
+      //SELECT * FROM = henter alt fra Eksamen.users
+      //WHERE = Her betyder det altså at den skal hente alle men at der er nogle krav altså her at email og password stemmer ens med nogle i databasen
       var sqlString = "SELECT * FROM Eksamen.users WHERE email ='"+email+"' AND password ='"+password+"'";
-      //var sqlString = "SELECT * FROM Eksamen.users WHERE email = 'sof@gmail.com'";
 
-      // Read all rows from table
+      //Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -508,22 +523,22 @@ router.get('/api/users/login', function(req, res, next) {
         }
 
       );
-
+      //Disse linjer mapper generisk felter fra vores sql-statement og laver dem til objeker, som så bliver tilføjet til et array.
       request.on('row', function(columns) {
         var _item = {};
         for (var name in columns) {
           _item[columns[name].metadata.colName] = columns[name].value;
         }
 
-        //Tilføjer i til jeres response obj
+        //Tilføjes til response-objektet
         userResponse.push(_item);
 
       });
 
-      //Nu har den fundet alle rækker i jeres database
+      //Nu har den fundet alle rækker i databasen
       request.on('requestCompleted', function () { 
 
-        //Send response tilbage
+        //Sender response tilbage
         res.send(userResponse);
 
       });
@@ -534,30 +549,32 @@ router.get('/api/users/login', function(req, res, next) {
     }
     
   });
-
+  //Forbinder
   connection.connect();
 });
 
-// Dette endpoint bliver brugt af admins til at hente alle brugere ud
+//Dette endpoint bliver brugt af admins til at hente alle brugere ud
 //Hent alle users
 router.get('/api/admin/users', function(req, res, next) {
   
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
+  //Tomt array
   var userResponse = [];
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
       
-
-
-      // Vi skriver i SQL sprog, som betyder at INSER INTO (de "ting" der skal indsættes i) og derefter VALUES som er værdierne der bliver tilføjet
-      //var sqlString = "SELECT * FROM Eksamen.users";
-
+      //Her oprettes en SQL string, som skal hente bruger-info fra databasen
+      // SELECT = Hvilke info vi gerne vil hente fra Eksamen.users
+      // COUNT = tæller hvor mange produkter der er tilknyttet til hvert user_id
+      // FROM = hvor vi gerne vil hente dataen fra ([Eksamen].[users])
+      // INNER JOIN = Her sammenlignes [Eksamen].[users]'s id med [Eksamen].[products]'s user_id. Laves for at finde ud af hvilke brugere, der har hvilke produkter
+      // GROUP BY = Dette gøres for at gruppere værdierne til det sammenlagte antal produkter pr bruger
       var sqlString = `
       SELECT 
       [Eksamen].[users].id,
@@ -580,7 +597,7 @@ router.get('/api/admin/users', function(req, res, next) {
       [Eksamen].[users].usertype_id;
       `;
 
-      // Read all rows from table
+      //Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -592,19 +609,19 @@ router.get('/api/admin/users', function(req, res, next) {
         }
 
       );
-
+      //Disse linjer mapper generisk felter fra vores sql-statement og laver dem til objeker, som så bliver tilføjet til et array.
       request.on('row', function(columns) {
         var _item = {};
         for (var name in columns) {
           _item[columns[name].metadata.colName] = columns[name].value;
         }
 
-        //Tilføjer i til jeres response obj
+        //Tilføjes til response-objektet
         userResponse.push(_item);
 
       });
 
-      //Nu har den fundet alle rækker i jeres database
+      //Nu har den fundet alle rækker i databasen
       request.on('requestCompleted', function () { 
 
         //Send response tilbage
@@ -618,28 +635,31 @@ router.get('/api/admin/users', function(req, res, next) {
     }
     
   });
-
+  //Forbinder
   connection.connect();
 });
 
-// Delete user
-//Slet et enkelt produkt
+//Admin skal kunne slette bruger
 router.get('/api/admin/users/delete', function(req, res, next) {
 
+  //Hent userId ud fra url params
   let userId = req.query.id;
 
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
       
-      var sqlString = "DELETE FROM Eksamen.users WHERE id=+'"+userId+"'";
+      //Her oprettes en SQL string, som har til formpl at slette bruger-info fra databasen
+      // DELETE FROM = her bestemmes at der skal slettes fra tabellen Eksamen.users
+      // WHERE = Med det kriterie at id er det samme som et userId i databasen 
+      var sqlString = "DELETE FROM Eksamen.products WHERE user_id = '"+userId+"' DELETE FROM Eksamen.users_products WHERE user1_id = '"+userId+"' DELETE FROM Eksamen.users WHERE id=+'"+userId+"'";
 
-      // Read all rows from table
+      //Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -650,40 +670,42 @@ router.get('/api/admin/users/delete', function(req, res, next) {
           }
         }
       );
-  
+        
+      //requesten hentes og bliver responderet
       request.on('requestCompleted', function () { 
         res.send('deleted');
       });
 
       //"Afyre" SQL request
       connection.execSql(request);
-
     }
-    
   });
-
+  //Forbinder
   connection.connect();
-
 });
 
-// Delete produkt
+//Delete produkt
 //Slet et enkelt produkt
 router.get('/api/products/delete', function(req, res, next) {
 
+  //Hent productId ud fra url params
   let productId = req.query.id;
 
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
       
-      var sqlString = "DELETE FROM Eksamen.products WHERE id=+'"+productId+"'";
+      // Her oprettes en SQL string, som har til formål at slette produkt-info fra databasen
+      // DELETE FROM = her bestemmes at der skal slettes fra tabellen Eksamen.products
+      // WHERE = Med det kriterie at id'et er det samme som et productId'et i databasen 
+      var sqlString = "DELETE FROM Eksamen.users_products WHERE product_id= '"+productId+"' DELETE FROM Eksamen.products WHERE id=+'"+productId+"'";
 
-      // Read all rows from table
+      //Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -694,7 +716,7 @@ router.get('/api/products/delete', function(req, res, next) {
           }
         }
       );
-  
+      //requesten hentes og bliver responderet
       request.on('requestCompleted', function () { 
         res.send('deleted');
       });
@@ -705,31 +727,35 @@ router.get('/api/products/delete', function(req, res, next) {
     }
     
   });
-
+  //Forbinder
   connection.connect();
-
 });
 
-// User profile
+//User profile
 //Alle users produkter
 router.get('/api/users/profile', function(req, res, next) {
 
+  //Hent userId ud fra url params
   let userId = req.query.userId;
 
+  //Tomt array
   var productsResponse = [];
 
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
       
+      // Her oprettes en SQL string, som har til formål at hente alle brugere med det userId fra databasen
+      // SELECT * FROM = her bestemmes det at alt fra tabellen Eksamen.products skal hentes ud
+      // WHERE = Med det kriterie at user_id'et er det samme som userId'et i databasen 
       var sqlString = "SELECT * FROM Eksamen.products WHERE user_id=+'"+userId+"'";
 
-      // Read all rows from table
+      //Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -740,21 +766,18 @@ router.get('/api/users/profile', function(req, res, next) {
           }
         }
       );
-
+      //Disse linjer mapper generisk felter fra vores sql-statement og laver dem til objeker, som så bliver tilføjet til et array.
       request.on('row', function(columns) {
-
         var _item = {};
-
         for (var name in columns) {
-
           _item[columns[name].metadata.colName] = columns[name].value;
         }
         
+        //Tilføjes til response-objektet
         productsResponse.push(_item);
-
-
       });
       
+      //requesten hentes og bliver responderet
       request.on('requestCompleted', function () { 
         res.send(productsResponse);
       });
@@ -765,31 +788,37 @@ router.get('/api/users/profile', function(req, res, next) {
     }
     
   });
-
+  //Forbinder
   connection.connect();
 
 });
 
-// User profile
-//Alle users produkter
+//Follow et produkt
 router.get('/api/users/products-follows', function(req, res, next) {
 
+  //Hent userId ud fra url params
   let userId = req.query.userId;
 
+  //Tomt array
   var productsResponse = [];
 
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
       
+      // Her oprettes en SQL string, som har til formål at gør det muligt at følge et produkt
+      // SELECT * FROM = her bestemmes det at alt fra tabellen Eksamen.users_products skal hentes ud
+      // LEFT JOIN = dette gøres ved at sammenligne product_id med det product_id der er i users_product tabellen
+      // WHERE = dog med det kriterie at userId'et er det samme 
+      // ORDER BY/DESC = Dette gøres for at sortere efter id'et så det nyeste produkt man har fulgt altid er øverst
       var sqlString = "SELECT * FROM [Eksamen].[users_products] LEFT JOIN [Eksamen].[products] ON [Eksamen].[products].id = [Eksamen].[users_products].product_id WHERE user1_id = '"+userId+"' ORDER BY [Eksamen].[users_products].id DESC;";
 
-      // Read all rows from table
+      //Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -800,21 +829,18 @@ router.get('/api/users/products-follows', function(req, res, next) {
           }
         }
       );
-
+      //Disse linjer mapper generisk felter fra vores sql-statement og laver dem til objeker, som så bliver tilføjet til et array.
       request.on('row', function(columns) {
-
         var _item = {};
-
         for (var name in columns) {
-
           _item[columns[name].metadata.colName] = columns[name].value;
         }
-        
+
+        //Tilføjes til response-objektet
         productsResponse.push(_item);
-
-
       });
-      
+
+      //requesten hentes og bliver responderet
       request.on('requestCompleted', function () { 
         res.send(productsResponse);
       });
@@ -825,7 +851,7 @@ router.get('/api/users/products-follows', function(req, res, next) {
     }
     
   });
-
+  //Forbinder
   connection.connect();
 
 });
@@ -842,15 +868,18 @@ router.get('/api/users/edit', function(req, res, next) {
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
-       
+
+      //Her oprettes en SQL string, som skal har til formål at redigere i nogle oplysninger i Eksamen.users tabellen
+      //UPDATE = opdaterer nogle værdier i objekterne i tabellen
+      //SET = Specificere hvilke værdier der skal opdateres
       var sqlString = "UPDATE Eksamen.users SET name='"+name+"', email='"+email+"', password='"+password+"' WHERE id='"+user_id+"'";
 
-      // Read all rows from table
+      //Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -862,9 +891,10 @@ router.get('/api/users/edit', function(req, res, next) {
         }
       );
 
-      //Nu har den fundet alle rækker i jeres database
+      //Nu har den fundet alle rækker i databasen
       request.on('requestCompleted', function () { 
 
+        //Her indsættes værdierne
         var userResponse = {
           'id': user_id
         }
@@ -876,18 +906,16 @@ router.get('/api/users/edit', function(req, res, next) {
 
       //"Afyre" SQL request
       connection.execSql(request);
-
     }
-    
   });
-
+  //Forbinder
   connection.connect();
 });
 
-//Update user
+//Admin skal kun redigere bruger
 router.get('/api/admin/users/edit', function(req, res, next) {
 
-  //Hent titel, beskrivelse, pris, kategori, et tilfældigt id og userId fra url params
+  //Hent name, password, emaik, user_id, usertype_id og is_gold ud fra url params
   let name = req.query.name;
   let password = req.query.password;
   let email = req.query.email;
@@ -898,15 +926,18 @@ router.get('/api/admin/users/edit', function(req, res, next) {
   //Forbind med database konfigurationer
   const connection = new Connection(config);
 
-  // Check on der er hul til databasen
+  // Check on der er hul til databasen eller kast en fejl
   connection.on("connect", err => {
     if (err) {
       console.error(err.message);
     } else {
-       
+      
+      //Her oprettes en SQL string, som skal har til formål at redigere i nogle oplysninger i Eksamen.users tabellen
+      //UPDATE = opdaterer nogle værdier i objekterne i tabellen
+      //SET = Specificere hvilke værdier der skal opdateres
       var sqlString = "UPDATE Eksamen.users SET name='"+name+"', email='"+email+"', password='"+password+"', usertype_id='"+usertype_id+"', is_gold='"+is_gold+"' WHERE id='"+user_id+"'";
 
-      // Read all rows from table
+      //Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
       const request = new Request(
         sqlString,
           (err, rowCount) => {
@@ -918,9 +949,10 @@ router.get('/api/admin/users/edit', function(req, res, next) {
         }
       );
 
-      //Nu har den fundet alle rækker i jeres database
+      //Nu har den fundet alle rækker i databasen
       request.on('requestCompleted', function () { 
 
+        //Her indsættes værdierne
         var userResponse = {
           'id': user_id
         }
@@ -936,28 +968,31 @@ router.get('/api/admin/users/edit', function(req, res, next) {
     }
     
   });
-
+  //Forbinder
   connection.connect();
 });
 
 //slet bruger
 router.get('/api/users/delete', function(req, res, next) {
-    
+
+    //Hent id ud fra url params
     let id = req.query.id;
   
     //Forbind med database konfigurationer
     const connection = new Connection(config);
   
-    // Check on der er hul til databasen
+    // Check on der er hul til databasen eller kast en fejl
     connection.on("connect", err => {
       if (err) {
         console.error(err.message);
       } else {
-        
-        // Vi skriver i SQL sprog, som betyder at INSER INTO (de "ting" der skal indsættes i) og derefter VALUES som er værdierne der bliver tilføjet
-        var sqlString = "DELETE FROM Eksamen.users WHERE id='"+id+"'";
+         
+        // Her oprettes en SQL string, som har til formål at slette user-info fra databasen
+        // DELETE FROM = her bestemmes at der skal slettes fra tabellen Eksamen.users
+        // WHERE = Med det kriterie at id'et er det samme som id'et i databasen 
+        var sqlString = "DELETE FROM Eksamen.products WHERE user_id = '"+id+"' DELETE FROM Eksamen.users_products WHERE user1_id = '"+id+"' DELETE FROM Eksamen.users WHERE id='"+id+"'";
   
-        // Read all rows from table
+        //Læser alle rækkerne fra tabellerne eller hvis ikke muligt, kastes en fejl, ellers returneres rækkerne
         const request = new Request(
           sqlString,
             (err, rowCount) => {
@@ -969,9 +1004,10 @@ router.get('/api/users/delete', function(req, res, next) {
           }
         );
   
-        //Nu har den fundet alle rækker i jeres database
+        //Nu har den fundet alle rækker i databasen
         request.on('requestCompleted', function () { 
   
+          //Her indsættes værdierne
           var userResponse = {
             'id': id,
           }
@@ -987,7 +1023,7 @@ router.get('/api/users/delete', function(req, res, next) {
       }
       
     });
-  
+    //Forbind
     connection.connect();
   });
 module.exports = router;
